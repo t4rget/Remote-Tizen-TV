@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TV Remote">
+<meta name="theme-color" content="#0a0a0f">
+<title>Samsung TV Remote</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: rgba(255,255,255,0.07);
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --text: #e8e8f0;
+    --muted: #5a5a70;
+    --danger: #f75f5f;
+    --success: #4fcc8e;
+    --btn-bg: #1e1e2e;
+    --btn-active: #2a2a40;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow-x: hidden;
+    user-select: none;
+  }
+
+  /* ── SETUP SCREEN ── */
+  #setup-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    padding: 32px 24px;
+    gap: 24px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(79,142,247,0.12) 0%, transparent 60%);
+  }
+
+  .setup-logo {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    box-shadow: 0 8px 40px rgba(79,142,247,0.35);
+  }
+
+  .setup-title { font-size: 26px; font-weight: 600; text-align: center; }
+  .setup-sub { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.5; }
+
+  .ip-card {
+    width: 100%; max-width: 360px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ip-label { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-family: 'DM Mono', monospace; }
+
+  .ip-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    font-size: 18px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text);
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .ip-input:focus { border-color: var(--accent); }
+  .ip-input::placeholder { color: var(--muted); }
+
+  .connect-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    color: #fff;
+    width: 100%;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .connect-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border-radius: 100px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    max-width: 360px; width: 100%;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.error { background: var(--danger); }
+  .status-dot.warning { background: #f7a74f; }
+
+  .how-to {
+    max-width: 360px; width: 100%;
+    background: rgba(79,142,247,0.06);
+    border: 1px solid rgba(79,142,247,0.15);
+    border-radius: var(--radius);
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+  .how-to strong { color: var(--text); }
+
+  /* ── MAIN APP ── */
+  #app-screen { display: none; flex-direction: column; min-height: 100dvh; }
+
+  /* Header */
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    padding-top: max(16px, env(safe-area-inset-top));
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.9);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .app-header-left { display: flex; flex-direction: column; gap: 2px; }
+  .tv-name { font-size: 16px; font-weight: 600; }
+  .tv-ip { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .header-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+  .settings-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    padding: 12px 16px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .tab-content { display: none; flex: 1; overflow-y: auto; }
+  .tab-content.active { display: block; }
+
+  /* ── REMOTE TAB ── */
+  .remote-wrap {
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 380px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Row helpers */
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row.center { justify-content: center; }
+  .col { display: flex; flex-direction: column; gap: 10px; }
+
+  /* Remote sections */
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 4px;
+  }
+
+  /* Generic remote button */
+  .rbtn {
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 20px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.1s, transform 0.08s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .rbtn:active { background: var(--btn-active); transform: scale(0.93); }
+
+  /* Power button */
+  .rbtn.power {
+    background: rgba(247,95,95,0.12);
+    border-color: rgba(247,95,95,0.25);
+    color: var(--danger);
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    font-size: 22px;
+  }
+  .rbtn.power:active { background: rgba(247,95,95,0.25); }
+
+  /* Icon button small */
+  .rbtn.sm { width: 52px; height: 52px; border-radius: 50%; font-size: 16px; }
+
+  /* Icon button medium */
+  .rbtn.md { width: 60px; height: 52px; font-size: 13px; font-weight: 500; }
+
+  /* Wide button */
+  .rbtn.wide { flex: 1; height: 52px; font-size: 14px; font-weight: 500; }
+
+  /* Full width */
+  .rbtn.full { width: 100%; height: 52px; font-size: 14px; font-weight: 500; }
+
+  /* D-Pad */
+  .dpad {
+    display: grid;
+    grid-template-columns: 70px 90px 70px;
+    grid-template-rows: 70px 90px 70px;
+    gap: 0;
+    place-items: center;
+    position: relative;
+    margin: 0 auto;
+  }
+
+  .dpad-ring {
+    position: absolute;
+    width: 230px; height: 230px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .dpad-btn {
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.1s, transform 0.08s;
+    touch-action: manipulation;
+  }
+  .dpad-btn:active { background: var(--btn-active); transform: scale(0.92); }
+
+  .dpad-btn.up, .dpad-btn.down {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+  }
+  .dpad-btn.left, .dpad-btn.right {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+  }
+  .dpad-btn.ok {
+    width: 78px; height: 78px;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--surface2);
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  .dpad-btn.ok:active { background: var(--btn-active); }
+
+  /* Number pad */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .numpad .rbtn {
+    height: 48px;
+    font-size: 18px;
+    font-weight: 500;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── APPS TAB ── */
+  .apps-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 20px 16px;
+    max-width: 400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .app-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 8px 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .app-card:active { background: var(--btn-active); transform: scale(0.95); }
+  .app-icon { font-size: 32px; line-height: 1; }
+  .app-name { font-size: 11px; font-weight: 500; color: var(--muted); text-align: center; }
+
+  /* ── SOURCES TAB ── */
+  .sources-list {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 20px 16px;
+    max-width: 400px; margin: 0 auto; width: 100%;
+  }
+
+  .source-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex; align-items: center; gap: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .source-card:active { background: var(--btn-active); transform: scale(0.98); }
+  .source-icon {
+    width: 44px; height: 44px;
+    background: var(--surface2);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .source-info { flex: 1; }
+  .source-name { font-size: 16px; font-weight: 500; }
+  .source-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .source-arrow { color: var(--muted); font-size: 18px; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: max(32px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(30,30,46,0.95);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 12px 20px;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text);
+    white-space: nowrap;
+    opacity: 0;
+    transition: all 0.25s;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .spinner.active { display: block; }
+
+  /* Safe area bottom padding */
+  .safe-bottom { height: max(24px, env(safe-area-inset-bottom)); }
+
+  /* Agenda select */
+  .agenda-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+  }
+  .agenda-row { display: flex; gap: 8px; }
+  .agenda-name { flex: 1; }
+  .save-btn {
+    background: rgba(79,142,247,0.15);
+    border: 1px solid rgba(79,142,247,0.3);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--accent);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .save-btn:active { background: rgba(79,142,247,0.25); }
+
+  /* Keyboard tab */
+  .keyboard-wrap {
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 16px;
+    max-width: 380px; margin: 0 auto; width: 100%;
+  }
+  .kb-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-size: 16px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    width: 100%;
+    outline: none;
+    -webkit-appearance: none;
+    user-select: text;
+  }
+  .kb-input:focus { border-color: var(--accent); }
+  .kb-input::placeholder { color: var(--muted); }
+  .kb-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .kb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .kb-key {
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .kb-key:active { background: var(--btn-active); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     SETUP SCREEN
+═══════════════════════════════════════ -->
+<div id="setup-screen">
+  <div class="setup-logo">📺</div>
+  <div>
+    <h1 class="setup-title">Samsung TV Remote</h1>
+    <p class="setup-sub" style="margin-top:8px">Controlá tu TV por WiFi desde tu iPhone</p>
+  </div>
+
+  <div class="ip-card">
+    <span class="ip-label">Agenda de dispositivos</span>
+    <select class="agenda-select" id="tv-selector" onchange="selectFromAgenda(this.value)">
+      <option value="">— Seleccionar TV guardado —</option>
+    </select>
+
+    <div class="divider" style="margin:4px 0"></div>
+
+    <span class="ip-label">IP de tu TV</span>
+    <div class="agenda-row">
+      <input
+        class="ip-input agenda-name"
+        id="tv-name-input"
+        type="text"
+        placeholder="Nombre (ej: Living)"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <input
+        class="ip-input"
+        id="ip-input"
+        type="text"
+        inputmode="decimal"
+        placeholder="192.168.1.100"
+        autocomplete="off"
+        spellcheck="false"
+        style="flex:1.3"
+      >
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="save-btn" onclick="saveToAgenda()">💾 Guardar</button>
+      <button class="connect-btn" style="flex:1" onclick="connectToTV()">Conectar</button>
+    </div>
+  </div>
+
+  <div class="status-pill" id="setup-status">
+    <div class="status-dot" id="setup-dot"></div>
+    <span id="setup-status-text">Ingresá la IP de tu TV Samsung</span>
+    <div class="spinner" id="setup-spinner"></div>
+  </div>
+
+  <div class="how-to">
+    <strong>¿Cómo encontrar la IP de tu TV?</strong><br>
+    En la TV: <strong>Configuración → General → Red → Estado de red → Dirección IP</strong><br><br>
+    <strong>Primera vez en PC/Chrome:</strong> visitá <strong>https://[IP]:8002</strong> y aceptá el certificado.<br><br>
+    <strong>Tip:</strong> La primera vez, la TV va a pedir que aceptes la conexión — aceptá con el control.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════ -->
+<div id="app-screen">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="app-header-left">
+      <span class="tv-name" id="tv-name-header">Samsung TV</span>
+      <span class="tv-ip" id="tv-ip-header">192.168.1.100</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="header-status">
+        <div class="status-dot connected" id="header-dot"></div>
+        <span id="header-status-text">Conectado</span>
+      </div>
+      <button class="settings-btn" onclick="goToSetup()">⚙️</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('remote', this)">🎮 Control</button>
+    <button class="tab-btn" onclick="switchTab('apps', this)">📱 Apps</button>
+    <button class="tab-btn" onclick="switchTab('sources', this)">🔌 Entradas</button>
+    <button class="tab-btn" onclick="switchTab('numpad', this)">🔢 Números</button>
+    <button class="tab-btn" onclick="switchTab('keyboard', this)">⌨️ Texto</button>
+  </div>
+
+  <!-- ── REMOTE TAB ── -->
+  <div class="tab-content active" id="tab-remote">
+    <div class="remote-wrap">
+
+      <!-- Power + Media controls -->
+      <div>
+        <div class="section-label">Energía y medios</div>
+        <div class="row center" style="gap:12px">
+          <button class="rbtn power" onclick="key('KEY_POWER')" title="Apagar">⏻</button>
+          <button class="rbtn sm" onclick="key('KEY_MUTE')" title="Mute">🔇</button>
+          <button class="rbtn sm" onclick="key('KEY_HOME')" title="Inicio">⌂</button>
+          <button class="rbtn sm" onclick="key('KEY_MENU')" title="Menú">☰</button>
+          <button class="rbtn sm" onclick="key('KEY_SOURCE')" title="Fuente">⬡</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Volume + Channel -->
+      <div class="row">
+        <div style="flex:1">
+          <div class="section-label" style="text-align:center">Volumen</div>
+          <div class="col" style="align-items:center;gap:6px">
+            <button class="rbtn md" onclick="key('KEY_VOLUMEUP')">＋</button>
+            <button class="rbtn md" onclick="key('KEY_MUTE')" style="font-size:11px;font-weight:600;color:var(--muted)">MUTE</button>
+            <button class="rbtn md" onclick="key('KEY_VOLUMEDOWN')">－</button>
+          </div>
+        </div>
+
+        <!-- D-Pad -->
+        <div style="flex:2">
+          <div class="section-label" style="text-align:center">Navegación</div>
+          <div class="dpad">
+            <div class="dpad-ring"></div>
+            <div></div>
+            <button class="dpad-btn up" onclick="key('KEY_UP')">▲</button>
+            <div></div>
+            <button class="dpad-btn left" onclick="key('KEY_LEFT')">◀</button>
+            <button class="dpad-btn ok" onclick="key('KEY_ENTER')">OK</button>
+            <button class="dpad-btn right" onclick="key('KEY_RIGHT')">▶</button>
+            <div></div>
+            <button class="dpad-btn down" onclick="key('KEY_DOWN')">▼</button>
+            <div></div>
+          </div>
+        </div>
+
+        <div style="flex:1">
+          <div class="section-label" style="text-align:center">Canal</div>
+          <div class="col" style="align-items:center;gap:6px">
+            <button class="rbtn md" onclick="key('KEY_CHUP')">＋</button>
+            <button class="rbtn md" onclick="key('KEY_CH_LIST')" style="font-size:11px;font-weight:600;color:var(--muted)">LIST</button>
+            <button class="rbtn md" onclick="key('KEY_CHDOWN')">－</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Nav actions -->
+      <div>
+        <div class="section-label">Acciones</div>
+        <div class="row">
+          <button class="rbtn wide" onclick="key('KEY_RETURN')">↩ Volver</button>
+          <button class="rbtn wide" onclick="key('KEY_EXIT')">✕ Salir</button>
+          <button class="rbtn wide" onclick="key('KEY_INFO')">ℹ Info</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Playback -->
+      <div>
+        <div class="section-label">Reproducción</div>
+        <div class="row center" style="gap:8px">
+          <button class="rbtn sm" onclick="key('KEY_REWIND')" title="Rebobinar">⏮</button>
+          <button class="rbtn sm" onclick="key('KEY_PLAY')" title="Play">▶</button>
+          <button class="rbtn sm" onclick="key('KEY_PAUSE')" title="Pausa">⏸</button>
+          <button class="rbtn sm" onclick="key('KEY_STOP')" title="Stop">⏹</button>
+          <button class="rbtn sm" onclick="key('KEY_FF')" title="Adelantar">⏭</button>
+        </div>
+      </div>
+
+      <div class="safe-bottom"></div>
+    </div>
+  </div>
+
+  <!-- ── APPS TAB ── -->
+  <div class="tab-content" id="tab-apps">
+    <div class="apps-grid" id="apps-grid">
+      <!-- Filled by JS -->
+    </div>
+    <div class="safe-bottom"></div>
+  </div>
+
+  <!-- ── SOURCES TAB ── -->
+  <div class="tab-content" id="tab-sources">
+    <div class="sources-list" id="sources-list">
+      <!-- Filled by JS -->
+    </div>
+    <div class="safe-bottom"></div>
+  </div>
+
+  <!-- ── NUMPAD TAB ── -->
+  <div class="tab-content" id="tab-numpad">
+    <div class="remote-wrap">
+      <div class="section-label">Ingresar canal</div>
+      <div class="numpad" id="numpad-grid">
+        <!-- Filled by JS -->
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="rbtn wide" onclick="key('KEY_PRECH')" style="font-size:13px">↩ Anterior</button>
+        <button class="rbtn wide" onclick="key('KEY_ENTER')" style="font-size:13px;color:var(--accent)">✓ OK</button>
+      </div>
+      <div class="safe-bottom"></div>
+    </div>
+  </div>
+
+  <!-- ── KEYBOARD TAB ── -->
+  <div class="tab-content" id="tab-keyboard">
+    <div class="keyboard-wrap">
+      <div class="section-label">Inyección de texto</div>
+      <p class="kb-desc">Escribí acá y el texto se envía letra por letra a la TV. Útil para buscar en Netflix, YouTube, etc.</p>
+      <input
+        class="kb-input"
+        id="kb-input"
+        type="text"
+        placeholder="Escribí y presioná Enviar..."
+        autocomplete="off"
+        spellcheck="false"
+        user-select="text"
+        oninput="handleKeyboardInput(event)"
+      >
+      <div class="kb-actions">
+        <button class="kb-key" onclick="key('KEY_ENTER')">↵ Enter</button>
+        <button class="kb-key" onclick="key('KEY_DEL')">⌫ Borrar</button>
+        <button class="kb-key" onclick="clearKbInput()">✕ Limpiar</button>
+        <button class="kb-key" onclick="key('KEY_RETURN')">↩ Atrás</button>
+      </div>
+      <div class="safe-bottom"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let ws = null;
+let tvIP = '';
+let tvName = 'Samsung TV';
+let isConnected = false;
+let reconnectTimer = null;
+let pingInterval = null;
+let lastKbChar = '';
+
+// Apps list
+const APPS = [
+  { id: '3201907018807',  name: 'Netflix',      icon: '🎬' },
+  { id: '111299001912',   name: 'YouTube',      icon: '▶️' },
+  { id: '3201910019365',  name: 'Prime Video',  icon: '📦' },
+  { id: '3201901017640',  name: 'Disney+',      icon: '✨' },
+  { id: '3201606009684',  name: 'Spotify',      icon: '🎵' },
+  { id: '3202301029760',  name: 'Max',          icon: '📺' },
+  { id: '3201512006963',  name: 'Twitch',       icon: '🎮' },
+  { id: '3201710014874',  name: 'Plex',         icon: '🖥️' },
+  { id: '3201601007230',  name: 'Rakuten TV',   icon: '🎞️' },
+  { id: '3201908010077',  name: 'Apple TV',     icon: '🍎' },
+  { id: '3201703012077',  name: 'DAZN',         icon: '⚽' },
+  { id: '3201608000985',  name: 'Smart Hub',    icon: '🏠' },
+];
+
+// Sources
+const SOURCES = [
+  { key: 'KEY_TV',    name: 'TV',     desc: 'Televisión en vivo',  icon: '📡' },
+  { key: 'KEY_HDMI1', name: 'HDMI 1', desc: 'Puerto HDMI 1',       icon: '🔵' },
+  { key: 'KEY_HDMI2', name: 'HDMI 2', desc: 'Puerto HDMI 2',       icon: '🟢' },
+  { key: 'KEY_HDMI3', name: 'HDMI 3', desc: 'Puerto HDMI 3',       icon: '🟡' },
+  { key: 'KEY_HDMI4', name: 'HDMI 4', desc: 'Puerto HDMI 4',       icon: '🟠' },
+  { key: 'KEY_AV',    name: 'AV',     desc: 'Entrada compuesta',    icon: '🔴' },
+];
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderApps();
+  renderSources();
+  renderNumpad();
+  loadAgenda();
+
+  // Restore last used IP
+  const savedIP = localStorage.getItem('tv_ip') || '';
+  if (savedIP) {
+    document.getElementById('ip-input').value = savedIP;
+    tvIP = savedIP;
+  }
+});
+
+// ═══════════════════════════════════════
+// AGENDA
+// ═══════════════════════════════════════
+function loadAgenda() {
+  const tvs = JSON.parse(localStorage.getItem('tv_agenda') || '[]');
+  const sel = document.getElementById('tv-selector');
+  sel.innerHTML = '<option value="">— Seleccionar TV guardado —</option>';
+  tvs.forEach(tv => {
+    const opt = document.createElement('option');
+    opt.value = tv.ip;
+    opt.textContent = `${tv.name}  (${tv.ip})`;
+    sel.appendChild(opt);
+  });
+}
+
+function saveToAgenda() {
+  const name = document.getElementById('tv-name-input').value.trim();
+  const ip   = document.getElementById('ip-input').value.trim();
+  if (!name || !ip) { showToast('⚠️ Completá nombre e IP'); return; }
+
+  let tvs = JSON.parse(localStorage.getItem('tv_agenda') || '[]');
+  tvs = tvs.filter(t => t.ip !== ip);
+  tvs.push({ name, ip });
+  localStorage.setItem('tv_agenda', JSON.stringify(tvs));
+  loadAgenda();
+  document.getElementById('tv-selector').value = ip;
+  showToast(`💾 "${name}" guardado`);
+}
+
+function selectFromAgenda(ip) {
+  if (!ip) return;
+  const tvs = JSON.parse(localStorage.getItem('tv_agenda') || '[]');
+  const tv = tvs.find(t => t.ip === ip);
+  if (tv) {
+    document.getElementById('tv-name-input').value = tv.name;
+    document.getElementById('ip-input').value = tv.ip;
+    tvIP = tv.ip;
+    connectToTV();
+  }
+}
+
+// ═══════════════════════════════════════
+// RENDER DYNAMIC CONTENT
+// ═══════════════════════════════════════
+function renderApps() {
+  document.getElementById('apps-grid').innerHTML = APPS.map(app => `
+    <div class="app-card" onclick="launchApp('${app.id}', '${app.name}')">
+      <div class="app-icon">${app.icon}</div>
+      <div class="app-name">${app.name}</div>
+    </div>
+  `).join('');
+}
+
+function renderSources() {
+  document.getElementById('sources-list').innerHTML = SOURCES.map(src => `
+    <div class="source-card" onclick="key('${src.key}'); showToast('Cambiando a ${src.name}')">
+      <div class="source-icon">${src.icon}</div>
+      <div class="source-info">
+        <div class="source-name">${src.name}</div>
+        <div class="source-desc">${src.desc}</div>
+      </div>
+      <div class="source-arrow">›</div>
+    </div>
+  `).join('');
+}
+
+function renderNumpad() {
+  const nums = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  document.getElementById('numpad-grid').innerHTML = nums.map(n => {
+    if (n === '') return `<div></div>`;
+    if (n === '⌫') return `<button class="rbtn" style="height:48px;font-size:20px" onclick="key('KEY_DEL')">⌫</button>`;
+    return `<button class="rbtn" style="height:48px;font-size:20px;font-family:'DM Mono',monospace" onclick="key('KEY_${n}')">${n}</button>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// WEBSOCKET CONNECTION
+// ═══════════════════════════════════════
+function connectToTV() {
+  const input = document.getElementById('ip-input').value.trim();
+  if (!input) { setStatus('⚠️ Ingresá la IP de tu TV', 'error'); return; }
+
+  tvIP = input;
+  localStorage.setItem('tv_ip', tvIP);
+
+  if (ws) { ws.close(); ws = null; }
+  clearInterval(pingInterval);
+  clearTimeout(reconnectTimer);
+
+  const nameB64 = btoa('SamsungRemote');
+  const wsUrl = `wss://${tvIP}:8002/api/v2/channels/samsung.remote.control?name=${nameB64}`;
+
+  setStatus(`Conectando a ${tvIP}…`, 'loading');
+
+  try { ws = new WebSocket(wsUrl); } catch (e) {
+    setStatus('❌ No se pudo crear la conexión', 'error'); return;
+  }
+
+  ws.onopen  = () => startPing();
+  ws.onmessage = (evt) => { try { handleTVMessage(JSON.parse(evt.data)); } catch(e){} };
+  ws.onerror = () => {
+    setStatus(`❌ Falló — si estás en Chrome/PC, visitá https://${tvIP}:8002 y aceptá el certificado`, 'error');
+    isConnected = false;
+  };
+  ws.onclose = () => {
+    isConnected = false;
+    clearInterval(pingInterval);
+    if (document.getElementById('app-screen').style.display !== 'none') {
+      updateHeaderStatus('Desconectado', false);
+      showToast('Conexión perdida — reconectando...');
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => connectAndStay(), 3000);
+    }
+  };
+}
+
+function connectAndStay() {
+  if (!tvIP) return;
+  const nameB64 = btoa('SamsungRemote');
+  const wsUrl = `wss://${tvIP}:8002/api/v2/channels/samsung.remote.control?name=${nameB64}`;
+  try {
+    ws = new WebSocket(wsUrl);
+    ws.onopen    = () => startPing();
+    ws.onmessage = (evt) => { try { handleTVMessage(JSON.parse(evt.data)); } catch(e){} };
+    ws.onerror   = () => updateHeaderStatus('Error', false);
+    ws.onclose   = () => {
+      isConnected = false;
+      clearInterval(pingInterval);
+      updateHeaderStatus('Desconectado', false);
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => connectAndStay(), 5000);
+    };
+  } catch(e) {}
+}
+
+function handleTVMessage(data) {
+  const event = data.event;
+  if (event === 'ms.channel.connect') {
+    isConnected = true;
+    if (data.data && data.data.name) tvName = data.data.name;
+    showAppScreen();
+    showToast('✅ Conectado a ' + tvName);
+  } else if (event === 'ms.channel.unauthorized') {
+    setStatus('⚠️ Aceptá la conexión en la pantalla de tu TV', 'warning');
+    showToast('👆 Aceptá en la TV con el control remoto');
+  } else if (event === 'ms.channel.disconnect') {
+    isConnected = false;
+    updateHeaderStatus('Desconectado', false);
+  }
+}
+
+function startPing() {
+  clearInterval(pingInterval);
+  pingInterval = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send('{}');
+  }, 25000);
+}
+
+// ═══════════════════════════════════════
+// KEY SENDING
+// ═══════════════════════════════════════
+function key(keyCode) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    showToast('⚠️ No conectado a la TV'); return;
+  }
+  ws.send(JSON.stringify({
+    method: 'ms.remote.control',
+    params: { Cmd: 'Click', DataOfCmd: keyCode, Option: 'false', TypeOfRemote: 'SendRemoteKey' }
+  }));
+  if (navigator.vibrate) navigator.vibrate(25);
+}
+
+// ═══════════════════════════════════════
+// LAUNCH APP — dual method (Gemini insight)
+// ═══════════════════════════════════════
+function launchApp(appId, appName) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    showToast('⚠️ No conectado'); return;
+  }
+
+  // Método 1: WebSocket nativo (más confiable)
+  ws.send(JSON.stringify({
+    method: 'ms.channel.emit',
+    params: { event: 'ed.apps.launch', to: 'host', data: { appId, action_type: 'DEEP_LINK' } }
+  }));
+
+  // Método 2: REST fallback en paralelo
+  fetch(`http://${tvIP}:8001/api/v2/applications/${appId}`, { method: 'POST', mode: 'no-cors' })
+    .catch(() => {});
+
+  showToast(`▶ Abriendo ${appName}…`);
+  if (navigator.vibrate) navigator.vibrate(25);
+}
+
+// ═══════════════════════════════════════
+// KEYBOARD / TEXT INJECTION
+// ═══════════════════════════════════════
+function handleKeyboardInput(evt) {
+  const input = evt.target;
+  const val = input.value;
+  if (!val.length) return;
+
+  // Enviar solo el último caracter ingresado
+  const char = val[val.length - 1].toUpperCase();
+  if (char.match(/[A-Z0-9\s]/)) {
+    const keyCode = char === ' ' ? 'KEY_SPACE' : `KEY_${char}`;
+    key(keyCode);
+  }
+}
+
+function clearKbInput() {
+  document.getElementById('kb-input').value = '';
+}
+
+// ═══════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════
+function showAppScreen() {
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'flex';
+  document.getElementById('tv-name-header').textContent = tvName;
+  document.getElementById('tv-ip-header').textContent = tvIP;
+  updateHeaderStatus('Conectado', true);
+}
+
+function goToSetup() {
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'flex';
+  document.getElementById('ip-input').value = tvIP;
+  setStatus('Reconectá cuando quieras', 'idle');
+  if (ws) { ws.close(); ws = null; }
+  clearTimeout(reconnectTimer);
+  clearInterval(pingInterval);
+}
+
+function updateHeaderStatus(msg, connected) {
+  document.getElementById('header-status-text').textContent = msg;
+  document.getElementById('header-dot').className = 'status-dot' + (connected ? ' connected' : ' error');
+}
+
+function setStatus(msg, state) {
+  document.getElementById('setup-status-text').textContent = msg;
+  const dot     = document.getElementById('setup-dot');
+  const spinner = document.getElementById('setup-spinner');
+  dot.className = 'status-dot';
+  spinner.classList.remove('active');
+  if (state === 'connected') dot.classList.add('connected');
+  else if (state === 'error')   dot.classList.add('error');
+  else if (state === 'warning') dot.classList.add('warning');
+  else if (state === 'loading') spinner.classList.add('active');
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('setup-screen').style.display !== 'none') {
+    connectToTV();
+  }
+});
+
+
+</script>
+</body>
+</html>
