@@ -556,6 +556,23 @@
   }
   .port-badge.wss { background: rgba(79,247,142,0.15); color: #4fcc8e; }
   .port-badge.ws  { background: rgba(247,167,79,0.15); color: #f7a74f; }
+
+  /* Back button en setup */
+  .back-btn {
+    display: none;
+    align-items: center; gap: 8px;
+    align-self: flex-start;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    font-size: 13px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--muted); cursor: pointer;
+    transition: all 0.15s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .back-btn.visible { display: flex; }
 </style>
 </head>
 <body>
@@ -564,6 +581,8 @@
      SETUP SCREEN
 ═══════════════════════════════════════ -->
 <div id="setup-screen">
+  <button class="back-btn" id="back-btn" onclick="backToRemote()">← Volver al control</button>
+
   <div class="setup-logo">📺</div>
   <div>
     <h1 class="setup-title">Samsung TV Remote</h1>
@@ -842,18 +861,21 @@ document.addEventListener('DOMContentLoaded', () => {
   renderNumpad();
   renderAgenda();
 
-  // Autoconectar al último TV usado
   const lastIP   = localStorage.getItem('tv_ip')   || '';
   const lastPort = parseInt(localStorage.getItem('tv_port') || '8002');
+
   if (lastIP) {
     tvIP   = lastIP;
     tvPort = lastPort;
     tvProtocol = tvPort === 8001 ? 'ws' : 'wss';
     document.getElementById('ip-input').value = lastIP;
     document.getElementById('port-select').value = String(lastPort);
-    const tvs = getAgenda();
-    const match = tvs.find(t => t.ip === lastIP);
+    const match = getAgenda().find(t => t.ip === lastIP);
     if (match) document.getElementById('tv-name-input').value = match.name;
+
+    // Auto-conectar directo sin mostrar setup
+    setStatus('Conectando…', 'loading');
+    connectAndStay();
   }
 });
 
@@ -1051,6 +1073,13 @@ function renderNumpad() {
 // ═══════════════════════════════════════
 // WEBSOCKET CONNECTION
 // ═══════════════════════════════════════
+function buildWsUrl(ip, port, protocol) {
+  const nameB64 = btoa('SamsungRemote');
+  const token   = localStorage.getItem(`tv_token_${ip}`) || '';
+  const tokenParam = token ? `&token=${token}` : '';
+  return `${protocol}://${ip}:${port}/api/v2/channels/samsung.remote.control?name=${nameB64}${tokenParam}`;
+}
+
 function connectToTV() {
   const input = document.getElementById('ip-input').value.trim();
   if (!input) { setStatus('⚠️ Ingresá la IP de tu TV', 'error'); return; }
@@ -1066,25 +1095,22 @@ function connectToTV() {
   clearInterval(pingInterval);
   clearTimeout(reconnectTimer);
 
-  const nameB64 = btoa('SamsungRemote');
-  const wsUrl = `${tvProtocol}://${tvIP}:${tvPort}/api/v2/channels/samsung.remote.control?name=${nameB64}`;
-
   setStatus(`Conectando a ${tvIP}:${tvPort}…`, 'loading');
 
-  try { ws = new WebSocket(wsUrl); } catch (e) {
+  try { ws = new WebSocket(buildWsUrl(tvIP, tvPort, tvProtocol)); } catch (e) {
     setStatus('❌ No se pudo crear la conexión', 'error'); return;
   }
 
-  ws.onopen  = () => startPing();
+  ws.onopen    = () => startPing();
   ws.onmessage = (evt) => { try { handleTVMessage(JSON.parse(evt.data)); } catch(e){} };
-  ws.onerror = () => {
+  ws.onerror   = () => {
     const hint = tvPort === 8002
       ? ` — en Chrome/PC visitá https://${tvIP}:8002 y aceptá el certificado`
       : ` — verificá que la TV esté encendida y en la misma red`;
     setStatus(`❌ Falló${hint}`, 'error');
     isConnected = false;
   };
-  ws.onclose = () => {
+  ws.onclose   = () => {
     isConnected = false;
     clearInterval(pingInterval);
     if (document.getElementById('app-screen').style.display !== 'none') {
@@ -1098,10 +1124,8 @@ function connectToTV() {
 
 function connectAndStay() {
   if (!tvIP) return;
-  const nameB64 = btoa('SamsungRemote');
-  const wsUrl = `${tvProtocol}://${tvIP}:${tvPort}/api/v2/channels/samsung.remote.control?name=${nameB64}`;
   try {
-    ws = new WebSocket(wsUrl);
+    ws = new WebSocket(buildWsUrl(tvIP, tvPort, tvProtocol));
     ws.onopen    = () => startPing();
     ws.onmessage = (evt) => { try { handleTVMessage(JSON.parse(evt.data)); } catch(e){} };
     ws.onerror   = () => updateHeaderStatus('Error', false);
@@ -1119,7 +1143,12 @@ function handleTVMessage(data) {
   const event = data.event;
   if (event === 'ms.channel.connect') {
     isConnected = true;
-    if (data.data && data.data.name) tvName = data.data.name;
+    if (data.data && data.data.name)  tvName = data.data.name;
+    // ── Guardar token para no pedir autorización de nuevo ──
+    if (data.data && data.data.token) {
+      const tokenKey = `tv_token_${tvIP}`;
+      localStorage.setItem(tokenKey, data.data.token);
+    }
     showAppScreen();
     showToast('✅ Conectado a ' + tvName);
   } else if (event === 'ms.channel.unauthorized') {
@@ -1218,18 +1247,37 @@ function showAppScreen() {
   document.getElementById('tv-name-header').textContent = tvName;
   document.getElementById('tv-ip-header').textContent = tvIP;
   updateHeaderStatus('Conectado', true);
-  renderAgenda(); // actualiza el punto verde del dispositivo activo
-  fetchMac(tvIP); // intenta capturar MAC si no la tenemos
+  renderAgenda();
+  fetchMac(tvIP);
 }
 
+// Ir a configuración SIN cerrar la conexión WebSocket
 function goToSetup() {
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('setup-screen').style.display = 'flex';
   document.getElementById('ip-input').value = tvIP;
-  setStatus('Reconectá cuando quieras', 'idle');
-  if (ws) { ws.close(); ws = null; }
-  clearTimeout(reconnectTimer);
-  clearInterval(pingInterval);
+  document.getElementById('port-select').value = String(tvPort);
+  // Mostrar botón volver solo si hay conexión activa
+  const backBtn = document.getElementById('back-btn');
+  if (isConnected) {
+    backBtn.classList.add('visible');
+    setStatus(`Conectado a ${tvIP} — podés volver sin reconectar`, 'connected');
+  } else {
+    backBtn.classList.remove('visible');
+    setStatus('Seleccioná un dispositivo o ingresá una IP', 'idle');
+  }
+  renderAgenda();
+  // NO cerramos ws — la conexión sigue viva
+}
+
+// Volver al control sin reconectar
+function backToRemote() {
+  if (isConnected) {
+    showAppScreen();
+  } else {
+    // Si se cayó mientras estábamos en settings, intentar reconectar
+    connectAndStay();
+  }
 }
 
 function updateHeaderStatus(msg, connected) {
