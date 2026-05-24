@@ -430,37 +430,77 @@
   /* Safe area bottom padding */
   .safe-bottom { height: max(24px, env(safe-area-inset-bottom)); }
 
-  /* Agenda select */
-  .agenda-select {
-    width: 100%;
+  /* ── AGENDA ── */
+  .agenda-list {
+    display: flex; flex-direction: column; gap: 8px;
+    width: 100%; max-height: 220px;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .agenda-list::-webkit-scrollbar { display: none; }
+
+  .device-card {
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .device-card:hover { border-color: var(--accent); }
+  .device-card.active-device { border-color: var(--accent); background: rgba(79,142,247,0.08); }
+
+  .device-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .device-dot.on { background: var(--success); box-shadow: 0 0 5px var(--success); }
+
+  .device-info { flex: 1; min-width: 0; }
+  .device-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .device-meta { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  .device-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-btn {
+    width: 32px; height: 32px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     font-size: 14px;
-    font-family: 'DM Sans', sans-serif;
-    color: var(--text);
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
+    color: var(--muted);
     cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
   }
-  .agenda-row { display: flex; gap: 8px; }
-  .agenda-name { flex: 1; }
-  .save-btn {
-    background: rgba(79,142,247,0.15);
-    border: 1px solid rgba(79,142,247,0.3);
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .icon-btn:active { transform: scale(0.92); }
+
+  /* Form nueva entrada */
+  .device-form {
+    background: var(--surface2);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 12px 14px;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: 'DM Sans', sans-serif;
-    color: var(--accent);
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
   }
-  .save-btn:active { background: rgba(79,142,247,0.25); }
+  .form-row { display: flex; gap: 8px; }
+  .agenda-save-btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: var(--radius-sm);
+    padding: 12px; font-size: 14px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif; color: #fff;
+    cursor: pointer; width: 100%;
+    transition: opacity 0.15s;
+  }
+  .agenda-save-btn:active { opacity: 0.85; }
+  .agenda-save-btn.editing { background: linear-gradient(135deg, #f7a74f, #f75f5f); }
+
+  .empty-agenda {
+    text-align: center; color: var(--muted); font-size: 13px;
+    padding: 16px 0;
+  }
 
   /* Keyboard tab */
   .keyboard-wrap {
@@ -472,31 +512,50 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 16px;
-    font-size: 16px;
+    padding: 16px; font-size: 16px;
     font-family: 'DM Sans', sans-serif;
-    color: var(--text);
-    width: 100%;
-    outline: none;
-    -webkit-appearance: none;
-    user-select: text;
+    color: var(--text); width: 100%;
+    outline: none; -webkit-appearance: none; user-select: text;
   }
   .kb-input:focus { border-color: var(--accent); }
   .kb-input::placeholder { color: var(--muted); }
   .kb-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
   .kb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .kb-key {
-    background: var(--btn-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 10px 16px;
-    font-size: 13px;
-    font-weight: 500;
-    font-family: 'DM Sans', sans-serif;
-    color: var(--text);
-    cursor: pointer;
+    background: var(--btn-bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    font-size: 13px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif; color: var(--text); cursor: pointer;
   }
   .kb-key:active { background: var(--btn-active); }
+
+  /* Port selector */
+  .port-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    text-align: center;
+  }
+  .port-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    font-weight: 500;
+  }
+  .port-badge.wss { background: rgba(79,247,142,0.15); color: #4fcc8e; }
+  .port-badge.ws  { background: rgba(247,167,79,0.15); color: #f7a74f; }
 </style>
 </head>
 <body>
@@ -512,43 +571,40 @@
   </div>
 
   <div class="ip-card">
-    <span class="ip-label">Agenda de dispositivos</span>
-    <select class="agenda-select" id="tv-selector" onchange="selectFromAgenda(this.value)">
-      <option value="">— Seleccionar TV guardado —</option>
-    </select>
+    <span class="ip-label">Dispositivos guardados</span>
+
+    <!-- Lista CRUD -->
+    <div class="agenda-list" id="agenda-list">
+      <div class="empty-agenda">Aún no hay dispositivos guardados</div>
+    </div>
 
     <div class="divider" style="margin:4px 0"></div>
 
-    <span class="ip-label">IP de tu TV</span>
-    <div class="agenda-row">
-      <input
-        class="ip-input agenda-name"
-        id="tv-name-input"
-        type="text"
-        placeholder="Nombre (ej: Living)"
-        autocomplete="off"
-        spellcheck="false"
-      >
-      <input
-        class="ip-input"
-        id="ip-input"
-        type="text"
-        inputmode="decimal"
-        placeholder="192.168.1.100"
-        autocomplete="off"
-        spellcheck="false"
-        style="flex:1.3"
-      >
+    <!-- Formulario agregar / editar -->
+    <div class="device-form">
+      <span class="ip-label" id="form-label">Agregar dispositivo</span>
+      <div class="form-row">
+        <input class="ip-input" id="tv-name-input" type="text"
+          placeholder="Nombre (ej: Living)" autocomplete="off" spellcheck="false" style="flex:1">
+        <input class="ip-input" id="ip-input" type="text" inputmode="decimal"
+          placeholder="192.168.1.100" autocomplete="off" spellcheck="false" style="flex:1.4">
+      </div>
+      <div class="form-row" style="align-items:center">
+        <span style="font-size:12px;color:var(--muted);flex:1">Puerto / Protocolo</span>
+        <select class="port-select" id="port-select">
+          <option value="8002">8002 — wss:// (seguro)</option>
+          <option value="8001">8001 — ws:// (legacy)</option>
+        </select>
+      </div>
+      <button class="agenda-save-btn" id="form-save-btn" onclick="saveDevice()">＋ Agregar</button>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="save-btn" onclick="saveToAgenda()">💾 Guardar</button>
-      <button class="connect-btn" style="flex:1" onclick="connectToTV()">Conectar</button>
-    </div>
+
+    <button class="connect-btn" onclick="connectToTV()" style="margin-top:4px">Conectar</button>
   </div>
 
   <div class="status-pill" id="setup-status">
     <div class="status-dot" id="setup-dot"></div>
-    <span id="setup-status-text">Ingresá la IP de tu TV Samsung</span>
+    <span id="setup-status-text">Seleccioná un dispositivo o ingresá una IP</span>
     <div class="spinner" id="setup-spinner"></div>
   </div>
 
@@ -742,13 +798,17 @@
 // ═══════════════════════════════════════
 let ws = null;
 let tvIP = '';
+let tvPort = 8002;
+let tvProtocol = 'wss';
 let tvName = 'Samsung TV';
 let isConnected = false;
 let reconnectTimer = null;
 let pingInterval = null;
-let lastKbChar = '';
+let editingIP = null;
 
-// Apps list
+// ═══════════════════════════════════════
+// APPS / SOURCES
+// ═══════════════════════════════════════
 const APPS = [
   { id: '3201907018807',  name: 'Netflix',      icon: '🎬' },
   { id: '111299001912',   name: 'YouTube',      icon: '▶️' },
@@ -764,7 +824,6 @@ const APPS = [
   { id: '3201608000985',  name: 'Smart Hub',    icon: '🏠' },
 ];
 
-// Sources
 const SOURCES = [
   { key: 'KEY_TV',    name: 'TV',     desc: 'Televisión en vivo',  icon: '📡' },
   { key: 'KEY_HDMI1', name: 'HDMI 1', desc: 'Puerto HDMI 1',       icon: '🔵' },
@@ -781,54 +840,177 @@ document.addEventListener('DOMContentLoaded', () => {
   renderApps();
   renderSources();
   renderNumpad();
-  loadAgenda();
+  renderAgenda();
 
-  // Restore last used IP
-  const savedIP = localStorage.getItem('tv_ip') || '';
-  if (savedIP) {
-    document.getElementById('ip-input').value = savedIP;
-    tvIP = savedIP;
+  // Autoconectar al último TV usado
+  const lastIP   = localStorage.getItem('tv_ip')   || '';
+  const lastPort = parseInt(localStorage.getItem('tv_port') || '8002');
+  if (lastIP) {
+    tvIP   = lastIP;
+    tvPort = lastPort;
+    tvProtocol = tvPort === 8001 ? 'ws' : 'wss';
+    document.getElementById('ip-input').value = lastIP;
+    document.getElementById('port-select').value = String(lastPort);
+    const tvs = getAgenda();
+    const match = tvs.find(t => t.ip === lastIP);
+    if (match) document.getElementById('tv-name-input').value = match.name;
+  }
+});
+
+// Reconectar cuando la app vuelve al foco (salir y entrar)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && tvIP && !isConnected) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => connectAndStay(), 800);
+  }
+});
+window.addEventListener('focus', () => {
+  if (tvIP && !isConnected) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => connectAndStay(), 800);
   }
 });
 
 // ═══════════════════════════════════════
-// AGENDA
+// AGENDA CRUD
 // ═══════════════════════════════════════
-function loadAgenda() {
-  const tvs = JSON.parse(localStorage.getItem('tv_agenda') || '[]');
-  const sel = document.getElementById('tv-selector');
-  sel.innerHTML = '<option value="">— Seleccionar TV guardado —</option>';
-  tvs.forEach(tv => {
-    const opt = document.createElement('option');
-    opt.value = tv.ip;
-    opt.textContent = `${tv.name}  (${tv.ip})`;
-    sel.appendChild(opt);
-  });
+function getAgenda() {
+  return JSON.parse(localStorage.getItem('tv_agenda') || '[]');
+}
+function setAgenda(tvs) {
+  localStorage.setItem('tv_agenda', JSON.stringify(tvs));
 }
 
-function saveToAgenda() {
+function renderAgenda() {
+  const tvs = getAgenda();
+  const container = document.getElementById('agenda-list');
+
+  if (!tvs.length) {
+    container.innerHTML = '<div class="empty-agenda">Aún no hay dispositivos guardados</div>';
+    return;
+  }
+
+  container.innerHTML = tvs.map(tv => {
+    const isActive = tv.ip === tvIP && isConnected;
+    const mac = tv.mac ? `<span style="margin-left:6px;opacity:0.6">· ${tv.mac}</span>` : '';
+    const port = tv.port || 8002;
+    const badge = port === 8002
+      ? `<span class="port-badge wss">wss:${port}</span>`
+      : `<span class="port-badge ws">ws:${port}</span>`;
+    return `
+    <div class="device-card ${isActive ? 'active-device' : ''}" onclick="selectDevice('${tv.ip}')">
+      <div class="device-dot ${isActive ? 'on' : ''}"></div>
+      <div class="device-info">
+        <div class="device-name">${tv.name}${badge}</div>
+        <div class="device-meta">${tv.ip}${mac}</div>
+      </div>
+      <div class="device-actions" onclick="event.stopPropagation()">
+        <button class="icon-btn" onclick="editDevice('${tv.ip}')" title="Editar">✏️</button>
+        <button class="icon-btn danger" onclick="deleteDevice('${tv.ip}')" title="Eliminar">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function saveDevice() {
   const name = document.getElementById('tv-name-input').value.trim();
   const ip   = document.getElementById('ip-input').value.trim();
+  const port = parseInt(document.getElementById('port-select').value);
   if (!name || !ip) { showToast('⚠️ Completá nombre e IP'); return; }
 
-  let tvs = JSON.parse(localStorage.getItem('tv_agenda') || '[]');
-  tvs = tvs.filter(t => t.ip !== ip);
-  tvs.push({ name, ip });
-  localStorage.setItem('tv_agenda', JSON.stringify(tvs));
-  loadAgenda();
-  document.getElementById('tv-selector').value = ip;
-  showToast(`💾 "${name}" guardado`);
+  let tvs = getAgenda();
+
+  if (editingIP) {
+    const existing = tvs.find(t => t.ip === editingIP) || {};
+    tvs = tvs.filter(t => t.ip !== editingIP);
+    tvs.push({ ...existing, name, ip, port });
+    showToast(`✏️ "${name}" actualizado`);
+    cancelEdit();
+  } else {
+    if (tvs.find(t => t.ip === ip)) {
+      showToast('⚠️ Ya existe un TV con esa IP'); return;
+    }
+    tvs.push({ name, ip, port, mac: null });
+    showToast(`✅ "${name}" agregado`);
+    document.getElementById('tv-name-input').value = '';
+    document.getElementById('ip-input').value = '';
+    document.getElementById('port-select').value = '8002';
+  }
+
+  setAgenda(tvs);
+  renderAgenda();
+  fetchMac(ip);
 }
 
-function selectFromAgenda(ip) {
-  if (!ip) return;
-  const tvs = JSON.parse(localStorage.getItem('tv_agenda') || '[]');
-  const tv = tvs.find(t => t.ip === ip);
-  if (tv) {
-    document.getElementById('tv-name-input').value = tv.name;
-    document.getElementById('ip-input').value = tv.ip;
-    tvIP = tv.ip;
-    connectToTV();
+function editDevice(ip) {
+  const tv = getAgenda().find(t => t.ip === ip);
+  if (!tv) return;
+  editingIP = ip;
+  document.getElementById('tv-name-input').value = tv.name;
+  document.getElementById('ip-input').value = tv.ip;
+  document.getElementById('port-select').value = String(tv.port || 8002);
+  document.getElementById('form-label').textContent = `Editando: ${tv.name}`;
+  const btn = document.getElementById('form-save-btn');
+  btn.textContent = '💾 Guardar cambios';
+  btn.classList.add('editing');
+  document.getElementById('tv-name-input').focus();
+}
+
+function cancelEdit() {
+  editingIP = null;
+  document.getElementById('tv-name-input').value = '';
+  document.getElementById('ip-input').value = '';
+  document.getElementById('port-select').value = '8002';
+  document.getElementById('form-label').textContent = 'Agregar dispositivo';
+  const btn = document.getElementById('form-save-btn');
+  btn.textContent = '＋ Agregar';
+  btn.classList.remove('editing');
+}
+
+function deleteDevice(ip) {
+  const tv = getAgenda().find(t => t.ip === ip);
+  if (!tv) return;
+  if (!confirm(`¿Eliminar "${tv.name}"?`)) return;
+  let tvs = getAgenda().filter(t => t.ip !== ip);
+  setAgenda(tvs);
+  if (editingIP === ip) cancelEdit();
+  renderAgenda();
+  showToast(`🗑 "${tv.name}" eliminado`);
+}
+
+function selectDevice(ip) {
+  const tv = getAgenda().find(t => t.ip === ip);
+  if (!tv) return;
+  tvIP   = tv.ip;
+  tvPort = tv.port || 8002;
+  tvProtocol = tvPort === 8001 ? 'ws' : 'wss';
+  document.getElementById('ip-input').value = tv.ip;
+  document.getElementById('tv-name-input').value = tv.name;
+  document.getElementById('port-select').value = String(tvPort);
+  localStorage.setItem('tv_ip', tvIP);
+  localStorage.setItem('tv_port', String(tvPort));
+  connectToTV();
+}
+
+// ═══════════════════════════════════════
+// MAC ADDRESS FETCH
+// ═══════════════════════════════════════
+async function fetchMac(ip) {
+  try {
+    const res = await fetch(`http://${ip}:8001/api/v2/`, { mode: 'cors', signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+    const mac = data?.device?.wifiMac || data?.device?.mac || null;
+    if (!mac) return;
+
+    let tvs = getAgenda();
+    const idx = tvs.findIndex(t => t.ip === ip);
+    if (idx !== -1 && tvs[idx].mac !== mac) {
+      tvs[idx].mac = mac;
+      setAgenda(tvs);
+      renderAgenda();
+    }
+  } catch (e) {
+    // Silencioso — la TV puede no responder HTTP si está apagada
   }
 }
 
@@ -873,17 +1055,21 @@ function connectToTV() {
   const input = document.getElementById('ip-input').value.trim();
   if (!input) { setStatus('⚠️ Ingresá la IP de tu TV', 'error'); return; }
 
-  tvIP = input;
-  localStorage.setItem('tv_ip', tvIP);
+  tvIP       = input;
+  tvPort     = parseInt(document.getElementById('port-select').value);
+  tvProtocol = tvPort === 8001 ? 'ws' : 'wss';
+
+  localStorage.setItem('tv_ip',   tvIP);
+  localStorage.setItem('tv_port', String(tvPort));
 
   if (ws) { ws.close(); ws = null; }
   clearInterval(pingInterval);
   clearTimeout(reconnectTimer);
 
   const nameB64 = btoa('SamsungRemote');
-  const wsUrl = `wss://${tvIP}:8002/api/v2/channels/samsung.remote.control?name=${nameB64}`;
+  const wsUrl = `${tvProtocol}://${tvIP}:${tvPort}/api/v2/channels/samsung.remote.control?name=${nameB64}`;
 
-  setStatus(`Conectando a ${tvIP}…`, 'loading');
+  setStatus(`Conectando a ${tvIP}:${tvPort}…`, 'loading');
 
   try { ws = new WebSocket(wsUrl); } catch (e) {
     setStatus('❌ No se pudo crear la conexión', 'error'); return;
@@ -892,7 +1078,10 @@ function connectToTV() {
   ws.onopen  = () => startPing();
   ws.onmessage = (evt) => { try { handleTVMessage(JSON.parse(evt.data)); } catch(e){} };
   ws.onerror = () => {
-    setStatus(`❌ Falló — si estás en Chrome/PC, visitá https://${tvIP}:8002 y aceptá el certificado`, 'error');
+    const hint = tvPort === 8002
+      ? ` — en Chrome/PC visitá https://${tvIP}:8002 y aceptá el certificado`
+      : ` — verificá que la TV esté encendida y en la misma red`;
+    setStatus(`❌ Falló${hint}`, 'error');
     isConnected = false;
   };
   ws.onclose = () => {
@@ -910,7 +1099,7 @@ function connectToTV() {
 function connectAndStay() {
   if (!tvIP) return;
   const nameB64 = btoa('SamsungRemote');
-  const wsUrl = `wss://${tvIP}:8002/api/v2/channels/samsung.remote.control?name=${nameB64}`;
+  const wsUrl = `${tvProtocol}://${tvIP}:${tvPort}/api/v2/channels/samsung.remote.control?name=${nameB64}`;
   try {
     ws = new WebSocket(wsUrl);
     ws.onopen    = () => startPing();
@@ -964,22 +1153,37 @@ function key(keyCode) {
 }
 
 // ═══════════════════════════════════════
-// LAUNCH APP — dual method (Gemini insight)
+// LAUNCH APP
 // ═══════════════════════════════════════
 function launchApp(appId, appName) {
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     showToast('⚠️ No conectado'); return;
   }
 
-  // Método 1: WebSocket nativo (más confiable)
+  // Método A: ed.apps.launch con DEEP_LINK (funciona en la mayoría de Tizen 4+)
   ws.send(JSON.stringify({
     method: 'ms.channel.emit',
-    params: { event: 'ed.apps.launch', to: 'host', data: { appId, action_type: 'DEEP_LINK' } }
+    params: { event: 'ed.apps.launch', to: 'host',
+      data: { appId, action_type: 'DEEP_LINK' } }
   }));
 
-  // Método 2: REST fallback en paralelo
-  fetch(`http://${tvIP}:8001/api/v2/applications/${appId}`, { method: 'POST', mode: 'no-cors' })
-    .catch(() => {});
+  // Método B: LAUNCH_APP (algunos modelos 2016-2018)
+  setTimeout(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        method: 'ms.channel.emit',
+        params: { event: 'ed.apps.launch', to: 'host',
+          data: { appId, action_type: 'LAUNCH_APP' } }
+      }));
+    }
+  }, 400);
+
+  // Método C: REST directo al puerto 8001 (solo funciona si estamos en http:// o red local)
+  // Desde Railway (https) esto está bloqueado por mixed-content — es esperado
+  if (tvPort === 8001 || window.location.protocol === 'http:') {
+    fetch(`http://${tvIP}:8001/api/v2/applications/${appId}`, { method: 'POST', mode: 'no-cors' })
+      .catch(() => {});
+  }
 
   showToast(`▶ Abriendo ${appName}…`);
   if (navigator.vibrate) navigator.vibrate(25);
@@ -1014,6 +1218,8 @@ function showAppScreen() {
   document.getElementById('tv-name-header').textContent = tvName;
   document.getElementById('tv-ip-header').textContent = tvIP;
   updateHeaderStatus('Conectado', true);
+  renderAgenda(); // actualiza el punto verde del dispositivo activo
+  fetchMac(tvIP); // intenta capturar MAC si no la tenemos
 }
 
 function goToSetup() {
