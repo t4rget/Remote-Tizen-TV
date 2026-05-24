@@ -529,6 +529,54 @@
   }
   .kb-key:active { background: var(--btn-active); }
 
+  /* Debug panel */
+  .debug-panel {
+    width: 100%; max-width: 360px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .debug-log {
+    background: #0a0a0a;
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: #4fcc8e;
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .debug-row { display: flex; gap: 8px; }
+  .debug-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text);
+    outline: none;
+    text-transform: uppercase;
+  }
+  .debug-send {
+    background: var(--btn-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .debug-send:active { background: var(--btn-active); }
+
   /* Port selector */
   .port-select {
     background: var(--surface2);
@@ -633,6 +681,16 @@
     <strong>Primera vez en PC/Chrome:</strong> visitá <strong>https://[IP]:8002</strong> y aceptá el certificado.<br><br>
     <strong>Tip:</strong> La primera vez, la TV va a pedir que aceptes la conexión — aceptá con el control.
   </div>
+
+  <div class="debug-panel">
+    <span class="ip-label">🔧 Probar tecla manualmente</span>
+    <div class="debug-row">
+      <input class="debug-input" id="debug-key" placeholder="KEY_VOLUP" autocomplete="off" spellcheck="false">
+      <button class="debug-send" onclick="debugSendKey()">Enviar</button>
+    </div>
+    <div class="debug-log" id="debug-log">— Esperando mensajes de la TV —</div>
+    <button class="debug-send" style="width:100%;text-align:center" onclick="clearDebugLog()">Limpiar log</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════
@@ -687,9 +745,9 @@
         <div style="flex:1">
           <div class="section-label" style="text-align:center">Volumen</div>
           <div class="col" style="align-items:center;gap:6px">
-            <button class="rbtn md" onclick="key('KEY_VOLUMEUP')">＋</button>
+            <button class="rbtn md" onclick="key('KEY_VOLUP')">＋</button>
             <button class="rbtn md" onclick="key('KEY_MUTE')" style="font-size:11px;font-weight:600;color:var(--muted)">MUTE</button>
-            <button class="rbtn md" onclick="key('KEY_VOLUMEDOWN')">－</button>
+            <button class="rbtn md" onclick="key('KEY_VOLDOWN')">－</button>
           </div>
         </div>
 
@@ -1176,18 +1234,20 @@ function handleTVMessage(raw) {
   const event = raw.event;
   const info  = parseInfo(raw);
 
+  // Log al panel de debug
+  debugLog(`← ${event}` + (info.token ? ` [token:${info.token}]` : ''));
+
   if (event === 'ms.channel.connect') {
     isConnected = true;
 
     if (info.name)  tvName = info.name;
 
-    // Guardar token — puede ser string numérico, guardarlo tal cual
     const token = info.token != null ? String(info.token) : null;
     if (token) {
       localStorage.setItem(`tv_token_${tvIP}`, token);
-      console.log(`[TV] Token guardado para ${tvIP}: ${token}`);
+      debugLog(`✓ Token guardado: ${token}`);
     } else {
-      console.warn('[TV] ms.channel.connect sin token — la TV pedirá autorización la próxima vez');
+      debugLog('⚠ Sin token en connect');
     }
 
     showAppScreen();
@@ -1201,6 +1261,35 @@ function handleTVMessage(raw) {
     isConnected = false;
     updateHeaderStatus('Desconectado', false);
   }
+}
+
+// ═══════════════════════════════════════
+// DEBUG
+// ═══════════════════════════════════════
+function debugLog(msg) {
+  const el = document.getElementById('debug-log');
+  if (!el) return;
+  const ts = new Date().toLocaleTimeString('es', { hour12: false });
+  el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+}
+
+function debugSendKey() {
+  const input = document.getElementById('debug-key');
+  const k = input.value.trim().toUpperCase();
+  if (!k) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    debugLog('✗ No conectado'); return;
+  }
+  ws.send(JSON.stringify({
+    method: 'ms.remote.control',
+    params: { Cmd: 'Click', DataOfCmd: k, Option: 'false', TypeOfRemote: 'SendRemoteKey' }
+  }));
+  debugLog(`→ Enviado: ${k}`);
+}
+
+function clearDebugLog() {
+  const el = document.getElementById('debug-log');
+  if (el) el.textContent = '— Log limpiado —';
 }
 
 // Eliminado startPing() — el ping era el causante de las desconexiones
