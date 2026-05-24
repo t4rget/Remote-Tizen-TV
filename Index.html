@@ -822,7 +822,6 @@ let tvProtocol = 'wss';
 let tvName = 'Samsung TV';
 let isConnected = false;
 let reconnectTimer = null;
-let pingInterval = null;
 let editingIP = null;
 
 // ═══════════════════════════════════════
@@ -1074,98 +1073,137 @@ function renderNumpad() {
 // WEBSOCKET CONNECTION
 // ═══════════════════════════════════════
 function buildWsUrl(ip, port, protocol) {
-  const nameB64 = btoa('SamsungRemote');
-  const token   = localStorage.getItem(`tv_token_${ip}`) || '';
+  const nameB64    = btoa('SamsungRemote');
+  const token      = localStorage.getItem(`tv_token_${ip}`) || '';
   const tokenParam = token ? `&token=${token}` : '';
   return `${protocol}://${ip}:${port}/api/v2/channels/samsung.remote.control?name=${nameB64}${tokenParam}`;
+}
+
+// Guardia: no abrir una nueva conexión si ya hay una abierta o conectándose
+function wsIsAlive() {
+  return ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING);
+}
+
+function openWs(onErrorStatus) {
+  if (!tvIP) return;
+  if (wsIsAlive()) return;          // ya está conectado, no hacer nada
+
+  try {
+    ws = new WebSocket(buildWsUrl(tvIP, tvPort, tvProtocol));
+  } catch(e) {
+    if (onErrorStatus) setStatus('❌ No se pudo crear la conexión', 'error');
+    return;
+  }
+
+  ws.onopen = () => {
+    // Sin ping — Samsung cierra la conexión si recibe mensajes que no reconoce.
+    // El propio protocolo WS mantiene el enlace vivo.
+  };
+
+  ws.onmessage = (evt) => {
+    try { handleTVMessage(JSON.parse(evt.data)); } catch(e) {}
+  };
+
+  ws.onerror = () => {
+    isConnected = false;
+    if (onErrorStatus) {
+      const hint = tvPort === 8002
+        ? ` — en Chrome/PC visitá https://${tvIP}:8002 y aceptá el certificado`
+        : ` — verificá que la TV esté encendida y en la misma red`;
+      setStatus(`❌ Falló${hint}`, 'error');
+    } else {
+      updateHeaderStatus('Error', false);
+    }
+  };
+
+  ws.onclose = (evt) => {
+    // Ignorar cierre limpio que nosotros iniciamos (code 1000 / 1001)
+    const weClosedIt = evt.code === 1000 || evt.code === 1001;
+    isConnected = false;
+
+    if (weClosedIt) return;   // cerramos nosotros a propósito, no reconectar
+
+    if (document.getElementById('app-screen').style.display !== 'none') {
+      updateHeaderStatus('Desconectado', false);
+      showToast('Reconectando...');
+    }
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => openWs(false), 4000);
+  };
 }
 
 function connectToTV() {
   const input = document.getElementById('ip-input').value.trim();
   if (!input) { setStatus('⚠️ Ingresá la IP de tu TV', 'error'); return; }
 
-  tvIP       = input;
-  tvPort     = parseInt(document.getElementById('port-select').value);
-  tvProtocol = tvPort === 8001 ? 'ws' : 'wss';
+  const newPort     = parseInt(document.getElementById('port-select').value);
+  const newProtocol = newPort === 8001 ? 'ws' : 'wss';
 
+  // Si mismo IP+puerto y ya conectado, solo volver a la pantalla principal
+  if (input === tvIP && newPort === tvPort && wsIsAlive()) {
+    backToRemote(); return;
+  }
+
+  // Cambio real — cerrar la anterior
+  if (ws) { ws.close(1000); ws = null; }
+  clearTimeout(reconnectTimer);
+
+  tvIP       = input;
+  tvPort     = newPort;
+  tvProtocol = newProtocol;
   localStorage.setItem('tv_ip',   tvIP);
   localStorage.setItem('tv_port', String(tvPort));
 
-  if (ws) { ws.close(); ws = null; }
-  clearInterval(pingInterval);
-  clearTimeout(reconnectTimer);
-
   setStatus(`Conectando a ${tvIP}:${tvPort}…`, 'loading');
-
-  try { ws = new WebSocket(buildWsUrl(tvIP, tvPort, tvProtocol)); } catch (e) {
-    setStatus('❌ No se pudo crear la conexión', 'error'); return;
-  }
-
-  ws.onopen    = () => startPing();
-  ws.onmessage = (evt) => { try { handleTVMessage(JSON.parse(evt.data)); } catch(e){} };
-  ws.onerror   = () => {
-    const hint = tvPort === 8002
-      ? ` — en Chrome/PC visitá https://${tvIP}:8002 y aceptá el certificado`
-      : ` — verificá que la TV esté encendida y en la misma red`;
-    setStatus(`❌ Falló${hint}`, 'error');
-    isConnected = false;
-  };
-  ws.onclose   = () => {
-    isConnected = false;
-    clearInterval(pingInterval);
-    if (document.getElementById('app-screen').style.display !== 'none') {
-      updateHeaderStatus('Desconectado', false);
-      showToast('Conexión perdida — reconectando...');
-      clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(() => connectAndStay(), 3000);
-    }
-  };
+  openWs(true);
 }
 
 function connectAndStay() {
-  if (!tvIP) return;
-  try {
-    ws = new WebSocket(buildWsUrl(tvIP, tvPort, tvProtocol));
-    ws.onopen    = () => startPing();
-    ws.onmessage = (evt) => { try { handleTVMessage(JSON.parse(evt.data)); } catch(e){} };
-    ws.onerror   = () => updateHeaderStatus('Error', false);
-    ws.onclose   = () => {
-      isConnected = false;
-      clearInterval(pingInterval);
-      updateHeaderStatus('Desconectado', false);
-      clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(() => connectAndStay(), 5000);
-    };
-  } catch(e) {}
+  openWs(false);
 }
 
-function handleTVMessage(data) {
-  const event = data.event;
+// Parseo robusto del mensaje de Samsung:
+// Según el firmware, data.data puede ser objeto o string JSON
+function parseInfo(raw) {
+  let info = raw.data;
+  if (typeof info === 'string') {
+    try { info = JSON.parse(info); } catch(e) { info = {}; }
+  }
+  return info || {};
+}
+
+function handleTVMessage(raw) {
+  const event = raw.event;
+  const info  = parseInfo(raw);
+
   if (event === 'ms.channel.connect') {
     isConnected = true;
-    if (data.data && data.data.name)  tvName = data.data.name;
-    // ── Guardar token para no pedir autorización de nuevo ──
-    if (data.data && data.data.token) {
-      const tokenKey = `tv_token_${tvIP}`;
-      localStorage.setItem(tokenKey, data.data.token);
+
+    if (info.name)  tvName = info.name;
+
+    // Guardar token — puede ser string numérico, guardarlo tal cual
+    const token = info.token != null ? String(info.token) : null;
+    if (token) {
+      localStorage.setItem(`tv_token_${tvIP}`, token);
+      console.log(`[TV] Token guardado para ${tvIP}: ${token}`);
+    } else {
+      console.warn('[TV] ms.channel.connect sin token — la TV pedirá autorización la próxima vez');
     }
+
     showAppScreen();
     showToast('✅ Conectado a ' + tvName);
+
   } else if (event === 'ms.channel.unauthorized') {
     setStatus('⚠️ Aceptá la conexión en la pantalla de tu TV', 'warning');
     showToast('👆 Aceptá en la TV con el control remoto');
+
   } else if (event === 'ms.channel.disconnect') {
     isConnected = false;
     updateHeaderStatus('Desconectado', false);
   }
 }
 
-function startPing() {
-  clearInterval(pingInterval);
-  pingInterval = setInterval(() => {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send('{}');
-  }, 25000);
-}
+// Eliminado startPing() — el ping era el causante de las desconexiones
 
 // ═══════════════════════════════════════
 // KEY SENDING
@@ -1257,9 +1295,8 @@ function goToSetup() {
   document.getElementById('setup-screen').style.display = 'flex';
   document.getElementById('ip-input').value = tvIP;
   document.getElementById('port-select').value = String(tvPort);
-  // Mostrar botón volver solo si hay conexión activa
   const backBtn = document.getElementById('back-btn');
-  if (isConnected) {
+  if (wsIsAlive()) {
     backBtn.classList.add('visible');
     setStatus(`Conectado a ${tvIP} — podés volver sin reconectar`, 'connected');
   } else {
